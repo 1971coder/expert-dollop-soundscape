@@ -1,0 +1,69 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Claude Code — machine-local overrides and runtime state
+.claude/settings.local.json
+.claude/*.lock
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts
+dist/
+build/
+out/
+target/
+.next/
+.nuxt/
+.cache/
+coverage/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Swift / Xcode
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+# Xcode build / test outputs
+build/Build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+# Swift Package Manager working dirs
+Package.resolved
+
+# Rust
+Cargo.lock
+
+# Agent run scratch — keep the directory and its README, ignore the contents
+agent-runs/*
+!agent-runs/README.md

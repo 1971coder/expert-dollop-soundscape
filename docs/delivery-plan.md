@@ -1,0 +1,33 @@
+# Delivery Plan
+
+The single coordination view for all AuralFlow work packages (WPs). Each row corresponds to one WP file in [../work-packages/](../work-packages/).
+
+## Parallelism rule
+
+> **Two work packages SHOULD NOT run in parallel if they both modify the same shared file or shared contract surface unless explicitly approved.**
+>
+> This is the primary mechanism for minimising merge conflicts and architectural drift. Compare the **Shared Files Allowed To Change** sections of two candidate-parallel WPs before dispatching them. If those sets overlap, sequence the WPs or split one of them.
+
+## Status legend
+
+`proposed` → `ready` → `in-progress` → `in-review` → `merged`
+
+## How to use
+
+- Add one row per WP. Keep it in sync with the WP file's status header.
+- Compare new candidate WPs to in-flight rows for shared-file overlap before marking them `ready`.
+- Archive merged rows once the WP is no longer load-bearing context (move to the `## Archive` section at the bottom — preserves coordination history).
+
+## Active
+
+| ID | Title | Objective | Agent | Branch | Deps | Parallel-safe? | Files likely touched | Shared-file risk | Integration risk | Acceptance | Tests | Status |
+|----|-------|-----------|-------|--------|------|----------------|----------------------|------------------|------------------|------------|-------|--------|
+| WP00 | Foundation | Ratify twelve convention categories; commit `.swiftlint.yml`, `.swift-format`, `.env.example`; close the foundation gate | human + claude | `wp/00-foundation` | — | no (everyone waits) | `CLAUDE.md`, `docs/coding-standards.md`, `docs/project-structure.md`, `docs/testing-strategy.md`, `.claude/settings.json`, `.gitignore` | n/a (gate) | n/a | All 12 categories closed; lint+format configs present; strict audit passes | none (conventions only) | proposed |
+| WP01 | Audio prototype | Stand up `AudioEngine` with `DroneSynth` + `NoiseGenerator` (pink + brown w/ leaky integrator) + `Mixer`; minimal SwiftUI view to start/stop | claude | `wp/01-audio-prototype` | WP00 | yes (only WP touching `Audio/` at this point) | `Soundscape/Audio/**`, `Soundscape/App/AuralFlowApp.swift`, `Soundscape/Views/Screens/Home/**`, `SoundscapeTests/AudioTests/**` | low (Audio is new) | low | Engine starts; audible drone + brown noise; offline-render tests pass; no audio-thread allocations under Instruments | unit (offline render) + smoke | proposed |
+| WP02 | MVP — Focus & Sleep | Add `PadSynth`, `PulseModulator`, `FilterController`; Focus + Sleep `ModePreset`s; session timer; intensity slider; SwiftData session+rating persistence; background-audio entitlement | claude | `wp/02-mvp-focus-sleep` | WP01 | partially (do NOT parallel with any WP that touches `Audio/Nodes/` or `Persistence/`) | `Soundscape/Audio/Nodes/**`, `Soundscape/Modes/**`, `Soundscape/Persistence/**`, `Soundscape/Views/**`, `Soundscape/App/**` (entitlements), `docs/data-model.md`, `docs/api-contract.md` | high (Audio + Persistence + entitlements) | medium | Focus session runs for full default; Sleep session runs in background; ratings persist; tests cover Sessions repo + each new node | unit + 1 XCUITest (start a session) | proposed |
+| WP03 | Adaptive intelligence | Wire `AdaptiveController`, signal collectors (`TimeOfDay`, `Motion`, `HeartRate`), and a minimal rule set; add Relax + Walk modes | claude | `wp/03-adaptive-intelligence` | WP02 | partially (do NOT parallel with any WP touching `Adaptive/` or `Audio/Internal/ParameterId.swift`) | `Soundscape/Adaptive/**`, `Soundscape/Audio/Internal/ParameterId.swift`, `Soundscape/Modes/Presets/RelaxPresets.swift`, `Soundscape/Modes/Presets/WalkPresets.swift`, `Soundscape/Persistence/Models/AdaptiveProfile.swift` | high (ParameterId is shared) | medium | Heart-rate-driven calmness rule visibly affects engine; tests cover rule purity; HK denial degrades cleanly | unit (rules) + integration (controller→engine round-trip) | proposed |
+| WP04 | AI personalisation | Add cloud-LLM natural-language adjuster, behavioural-learning loop, preset recommendations; feature-flagged | claude | `wp/04-ai-personalisation` | WP03 | yes (new module under `Adaptive/AI/`, contract-only with rest) | `Soundscape/Adaptive/AI/**`, `Soundscape/Views/Screens/Settings/AISettings.swift`, `docs/api-contract.md` (§3), `docs/decisions.md` | low (new code; isolated) | low | NLP prompt produces visible engine change; toggling AI off cleanly disables module; no biometrics in prompts | unit + integration (mocked vendor) | proposed |
+
+## Archive
+
+<!-- Move merged WPs here. Column shape: | ID | Title | Merged at | Notes | -->

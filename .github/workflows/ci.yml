@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  template-health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate JSON
+        run: jq empty .claude/settings.json
+
+      - name: Check shell syntax
+        run: |
+          bash -n scripts/*.sh
+          bash -n .claude/hooks/*.sh
+
+      - name: Audit template
+        run: ./scripts/template-audit.sh --template
+
+      - name: Run tests
+        run: ./scripts/test.sh
+
+      - name: Run checks
+        run: ./scripts/check.sh
+
+      - name: Smoke-test format wrapper
+        run: ./scripts/format.sh
