@@ -1,6 +1,6 @@
 # Coding Standards
 
-The agreed conventions for AuralFlow, by category. This file is the canonical home for the twelve categories enumerated in [WP00 — Foundation](../work-packages/WP00-foundation.md). The contents below are the **starting draft** derived from the AuralFlow spec; WP00 ratifies (and may refine) them before any feature work begins.
+The agreed conventions for AuralFlow, by category. This file is the canonical home for the twelve categories enumerated in [WP00 — Foundation](../work-packages/WP00-foundation.md). **Ratified by WP00 on 2026-05-22.** Subsequent refinements are by amendment — leave a dated note in the relevant section when a rule changes.
 
 When CLAUDE.md's *Conventions* section conflicts with this file, **this file wins** — and CLAUDE.md should be updated to match.
 
@@ -51,22 +51,25 @@ See [testing-strategy.md](testing-strategy.md). Summary:
 
 ## 7. Linting conventions
 
-- **SwiftLint** with the project ruleset committed at `.swiftlint.yml` (introduced by WP00).
-- Lint runs in `./scripts/check.sh` and CI; lint failures **block** merge.
+- **SwiftLint** with the project ruleset committed at [`.swiftlint.yml`](../.swiftlint.yml) (introduced by WP00).
+- `./scripts/check.sh` runs `swiftlint --strict` when the binary is installed and the config is present — every warning is a build failure.
 - New rules go in `.swiftlint.yml` (not disabled inline) so the policy is grep-able.
+- SwiftLint owns **correctness and safety** (force-unwrap, force-try, audio-thread `print`, naming). Whitespace and layout are swift-format's job — do not double-enforce them in SwiftLint.
+- A custom rule in `.swiftlint.yml` already flags `print()` anywhere under `Audio/`. Tighten the audio-thread guard further in WP01 once `Soundscape/Audio/` actually exists.
 
 ## 8. Formatting conventions
 
-- **swift-format** (Apple's) is the formatter. Config committed at `.swift-format` (WP00).
+- **swift-format** (Apple's, JSON config) is the formatter. Config committed at [`.swift-format`](../.swift-format) (WP00).
+- Line length is **120**; SwiftLint's hard error threshold is 200 — the formatter is the first line of defence, the linter catches what survives.
 - Run on save in Xcode (per-developer setting; documented in onboarding).
 - Run by `./scripts/format.sh` and enforced in CI via a non-zero exit if the diff is non-empty.
 
 ## 9. Environment variable conventions
 
-- iOS apps rarely need env vars; secrets (e.g. OpenAI API key for Phase 4) live in `Info.plist` for development, **never** committed.
-- `.env.example` documents the variables; a `.env` file is read at build time by a small build phase script.
-- Naming: `SCREAMING_SNAKE_CASE`, prefixed `AURALFLOW_` (e.g. `AURALFLOW_OPENAI_KEY`).
-- No secrets in CI logs.
+- iOS apps rarely need env vars; secrets (e.g. OpenAI / Anthropic API keys for Phase 4) live outside source control. Local dev values live in `.env` (gitignored); production values are injected by a build-time script delivered in WP04.
+- [`.env.example`](../.env.example) is the canonical list of recognised variables. Any new variable must be added there in the same WP that introduces it.
+- Naming: `SCREAMING_SNAKE_CASE`, prefixed `AURALFLOW_` (e.g. `AURALFLOW_OPENAI_KEY`, `AURALFLOW_ANTHROPIC_KEY`).
+- No secrets in CI logs; no `print`/`os_log` of variable contents.
 
 ## 10. Naming conventions
 
@@ -107,7 +110,7 @@ See [testing-strategy.md](testing-strategy.md). Summary:
 
 ## WP00 closeout checklist
 
-- [ ] All twelve categories above reviewed and ratified (or refined) by the WP00 agent.
-- [ ] `.swiftlint.yml`, `.swift-format`, `.env.example` committed (or explicitly deferred with a follow-up WP).
-- [ ] CLAUDE.md *Conventions* section either summarises this file or links to it.
-- [ ] `./scripts/template-audit.sh --strict` passes.
+- [x] All twelve categories above reviewed and ratified by the WP00 agent (2026-05-22).
+- [x] `.swiftlint.yml`, `.swift-format`, `.env.example` committed.
+- [x] CLAUDE.md *Conventions* section links to this file (see CLAUDE.md *Conventions*).
+- [x] `./scripts/template-audit.sh --strict` passes.

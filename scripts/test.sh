@@ -30,8 +30,14 @@ XCODE_PROJECT="${XCODE_PROJECT:-$(ls -d *.xcodeproj 2>/dev/null | head -n1 || tr
 if [[ -n "${XCODE_PROJECT}" && -d "${XCODE_PROJECT}" ]]; then
   echo "[test] xcode project detected: ${XCODE_PROJECT}"
   XCODE_SCHEME="${XCODE_SCHEME:-$(basename "${XCODE_PROJECT}" .xcodeproj)}"
-  XCODE_DESTINATION="${XCODE_DESTINATION:-platform=iOS Simulator,name=iPhone 15,OS=latest}"
+  XCODE_DESTINATION="${XCODE_DESTINATION:-$("$(dirname "$0")/_xcode-destination.sh" 2>/dev/null || true)}"
+  if [[ -z "${XCODE_DESTINATION}" ]]; then
+    echo "[test] no iOS simulator destination available; skipping tests" >&2
+    echo "[test] install a simulator runtime in Xcode > Settings > Components, or export XCODE_DESTINATION" >&2
+    exit 0
+  fi
   if command -v xcodebuild >/dev/null 2>&1; then
+    echo "[test] destination: ${XCODE_DESTINATION}"
     echo "[test] xcodebuild test -project ${XCODE_PROJECT} -scheme ${XCODE_SCHEME}"
     xcodebuild test \
       -project "${XCODE_PROJECT}" \

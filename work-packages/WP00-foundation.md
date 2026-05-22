@@ -1,6 +1,6 @@
 # WP00 — Foundation
 
-> **Status:** proposed
+> **Status:** in-progress
 > **Branch:** `wp/00-foundation`
 > **Assigned:** <human + agent>
 > **Depends on:** none
