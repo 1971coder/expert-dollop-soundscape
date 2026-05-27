@@ -1,6 +1,6 @@
 # WP00 — Foundation
 
-> **Status:** in-progress
+> **Status:** merged
 > **Branch:** `wp/00-foundation`
 > **Assigned:** <human + agent>
 > **Depends on:** none
@@ -86,12 +86,26 @@ None — this WP doesn't ship code. It does, however, gate the *testing conventi
 
 ## Integration notes
 
-The handoff section of this WP must record: which decisions were contested and why the chosen path won; any conventions that were deliberately deferred to a later WP (and which WP).
+**Ratified by WP00 (2026-05-22):**
+
+- **iOS 17 minimum deployment target.** Won over iOS 16 (would have forced a parallel Core Data path) and iOS 18 (no near-term feature gain). See `docs/decisions.md` 2026-05-22.
+- **SwiftData as the persistence layer.** Won over Core Data and raw SQLite/GRDB. Migration risk explicitly accepted; if SwiftData's tooling bites, fallback is a dedicated GRDB migration WP. See `docs/decisions.md`.
+- **AudioKit as an optional helper, not a hard dependency.** Source nodes that need realtime guarantees skip AudioKit and use `AVAudioSourceNode`.
+- **SwiftLint + swift-format split.** SwiftLint owns correctness/safety; swift-format owns layout. SwiftLint's posture is intentionally small at WP00 — widened as the codebase grows.
+
+**Deliberately deferred:**
+
+- **Tightening the SwiftLint audio-thread guard.** Current custom rules cover only `print()` under `Audio/`. WP01 extends to `os_log`, dispatch-async, allocations once `Soundscape/Audio/` actually exists.
+- **Xcode project / scheme fixes.** `Soundscape.xcodeproj` has a pre-existing scheme/SUPPORTED_PLATFORMS issue that prevents `xcodebuild` from finding any iOS Simulator destination. `project.pbxproj` is **not** in this WP's allow-list, so it stays unfixed here. WP01's first task is to resolve it — without that, no Swift code can build. Captured in `docs/handoff.md` Open Issues.
+- **NLP env-loader implementation.** `.env.example` defines `AURALFLOW_OPENAI_KEY` and `AURALFLOW_ANTHROPIC_KEY`; the build-time script that reads them is WP04's responsibility.
+- **README.md replacement.** Still the scaffold's README. Low priority; deferred until there's user-facing copy worth writing.
+
+No conventions were contested — the AuralFlow spec was unambiguous on the high-level choices, and the alternatives considered (logged in `decisions.md`) were genuinely weaker for this project's constraints.
 
 ## Handoff requirements
 
-- [ ] All twelve categories addressed in [../docs/coding-standards.md](../docs/coding-standards.md) (or explicitly deferred with a follow-up WP filed).
-- [ ] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) marked `merged`.
-- [ ] [../docs/handoff.md](../docs/handoff.md) updated via `/update-handoff` to reflect that the foundation gate is now open.
-- [ ] [../docs/decisions.md](../docs/decisions.md) updated with any architectural decisions made during this WP.
-- [ ] `./scripts/template-audit.sh --strict` passes.
+- [x] All twelve categories addressed in [../docs/coding-standards.md](../docs/coding-standards.md).
+- [x] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) marked `merged` (2026-05-22).
+- [x] [../docs/handoff.md](../docs/handoff.md) updated to reflect that the foundation gate is OPEN.
+- [x] [../docs/decisions.md](../docs/decisions.md) updated with the architectural decisions made during this WP (five new entries on 2026-05-22).
+- [x] `./scripts/template-audit.sh --strict` passes.

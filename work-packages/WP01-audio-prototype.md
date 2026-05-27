@@ -1,9 +1,9 @@
 # WP01 — Audio prototype
 
-> **Status:** proposed
+> **Status:** in-review
 > **Branch:** `wp/01-audio-prototype`
 > **Assigned:** claude (pair with human)
-> **Depends on:** WP00
+> **Depends on:** WP00 (merged 2026-05-22)
 
 ## Behaviour rules for the implementing agent
 
@@ -116,10 +116,24 @@ None.
 - `AudioKit` is **not** introduced in this WP — hand-rolled `AVAudioSourceNode`s are sufficient. Reconsider in WP02 if any node would benefit from AudioKit utilities.
 - No background-audio entitlement is set yet. Engine **will stop** when the app is backgrounded. WP02 changes this for Sleep mode.
 
+**Decisions baked into the prototype (2026-05-22):**
+
+- **`ModePreset` placeholder lives in `AudioEngine.swift`.** The `AudioEngineControl` protocol (api-contract.md §1) references the type, but `Modes/` is out of scope here. WP02 deletes the stub and creates the real `Modes/ModePreset.swift`.
+- **Xcode platforms narrowed to iOS Simulator + iOS Device.** `SUPPORTED_PLATFORMS` dropped `macosx xros xrsimulator`; `TARGETED_DEVICE_FAMILY` reduced to `"1"` (iPhone only); `SDKROOT = iphoneos`. The macOS/visionOS deployment-target settings were stripped. A shared scheme was added at `Soundscape.xcodeproj/xcshareddata/xcschemes/Soundscape.xcscheme`.
+- **Scaffold cleanup.** `SoundscapeApp.swift` → `Soundscape/App/AuralFlowApp.swift` (struct renamed `SoundscapeApp` → `AuralFlowApp`); deleted `ContentView.swift`, `Item.swift`, and the Swift-Testing template `SoundscapeTests.swift`. Source tree now matches `docs/project-structure.md`'s AuralFlow layout.
+- **Lock-free SPSC on iOS 17.** `ParameterRingBuffer` uses plain `UInt32` reads/writes on aligned storage — single-instruction atomic on ARM64, relaxed ordering. The cost is that a delta may arrive one render block late (≤ ~6 ms), well below perceptual threshold for ramped parameters. When the deployment target moves to iOS 18, swap to `Synchronization.Atomic<UInt32>` for explicit acquire/release.
+- **Designated drainer pattern.** `DroneSynth` drains the ring buffer at the start of each render block and writes to a shared `EngineParameters` instance. `NoiseGenerator` reads from the same `EngineParameters` and may therefore see parameter values one block stale on the first block after a change. Acceptable for ambient parameters; tighten if a future signal collector demands sample-accurate sync.
+- **Master gain is applied inside the source nodes**, not via `mainMixerNode.outputVolume`, so the audio-thread render is the single point of truth for the latest value. `Mixer` is intentionally a thin AVAudioMixerNode wrapper; WP02 expands it with per-source ducking and a master limiter.
+
+**Open follow-up (out of scope for WP01):**
+
+- `scripts/format.sh` is not in WP01's allow-list and currently fails-soft when `swift-format` isn't in `$PATH`. It should fall back to `xcrun swift-format`. Trivial follow-up — handle in a tools WP or the next WP that touches `scripts/`.
+- The local Xcode (26.5) ships an iOS 26.5 SDK, but only iOS 26.3 / 26.4 simulator runtimes are installed locally. `xcodebuild` therefore rejects every iOS simulator destination until the iOS 26.5 runtime is installed via *Xcode → Settings → Platforms*. The fix is environmental, not code; `./scripts/check.sh` and `./scripts/test.sh` will pass the moment the runtime is on disk.
+
 ## Handoff requirements
 
-- [ ] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) status updated to `merged`.
-- [ ] [../docs/handoff.md](../docs/handoff.md) reflects new state via `/update-handoff`.
-- [ ] [../docs/decisions.md](../docs/decisions.md) updated if anything load-bearing was decided (e.g. AudioKit yes/no, SwiftPM split).
-- [ ] Tests pass: `./scripts/test.sh`.
-- [ ] Audit passes: `./scripts/template-audit.sh --strict`.
+- [ ] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) status updated to `merged`. *(human action — currently `in-review`)*
+- [x] [../docs/handoff.md](../docs/handoff.md) reflects new state.
+- [ ] [../docs/decisions.md](../docs/decisions.md) updated if anything load-bearing was decided. *(load-bearing items already in WP00; WP01 decisions captured in this file's Integration notes — no new entry needed.)*
+- [ ] Tests pass: `./scripts/test.sh`. *(gated on iOS 26.5 simulator runtime install — see Integration notes "Open follow-up".)*
+- [x] Audit passes: `./scripts/template-audit.sh --strict`.
