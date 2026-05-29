@@ -94,3 +94,27 @@ When a decision is **superseded**, do not delete the old entry. Mark its status 
 - **Status:** active
 - **WP:** WP00
 
+## 2026-05-29 — Designated drainer: `DroneSynth` drains the SPSC ring buffer
+
+- **Decision:** `DroneSynth.render()` is the sole consumer of `ParameterRingBuffer`. It pops every queued `ParameterDelta` at the start of each render block and applies it to a shared `EngineParameters` instance. Other source nodes (currently `NoiseGenerator`, later `PadSynth` etc.) read from `EngineParameters` and never touch the ring buffer themselves.
+- **Alternatives considered:** Every source node drains its own ring buffer (multiplies memory traffic and complicates the SPSC invariant — multiple consumers); a dedicated silent "drainer" node added to the engine graph (extra render callback per block for no audio output); the engine drains in a pre-render tap (Apple's API exposes no clean hook).
+- **Why:** Single-drainer preserves the SPSC invariant trivially (one consumer, no contention) and matches realtime audio idioms where one node "drives" parameter state. Cost: non-drainer nodes see parameter changes ≤ ~6 ms stale on the first block after a change — well below the perceptual threshold for the ramped parameters this engine uses. Re-evaluate if a future signal collector demands sample-accurate cross-node sync.
+- **Status:** active
+- **WP:** WP01
+
+## 2026-05-29 — `Audio/Internal/` is strictly module-private
+
+- **Decision:** `Audio/Internal/` is reserved for files used only inside the `Audio/` module. Files in this directory carry the default `internal` access level (or `private`/`fileprivate` where applicable) and MUST NOT be `public`. Public contract types shared with `Adaptive/` — currently `ParameterId` and `ParameterDelta`, per [api-contract.md §1](api-contract.md#1-audioengine-command-surface) — do **not** live in `Audio/Internal/`. They belong at the top of `Audio/` or in a dedicated `Audio/Contract/` directory.
+- **Alternatives considered:** Treat `Audio/Internal/` as "private helpers plus a small set of public contract types" and amend `project-structure.md` line 160 to acknowledge the exception (keeps the current file layout but makes the directory name dishonest); leave the access model unstated and let each WP author decide (guarantees re-litigation on every Audio/ change).
+- **Why:** Aligns the directory name with its actual meaning — the same convention Apple uses for `_internal` headers and Swift uses for the `internal` access level. The shipped WP01 layout violates this decision (`Soundscape/Audio/Internal/` currently contains four `public` types, two of which are over-exposed and two of which are misplaced contract types). Resolving the rule now prevents every future Audio/ change from re-litigating whether a given file "belongs in Internal/". Cleanup — moving `ParameterId.swift` and `ParameterDelta.swift` out of `Internal/`, demoting `EngineParameters` and `ParameterRingBuffer` to `internal`, and amending `project-structure.md` lines 98-101 and 160 — is owned by WP02's first touch on `Audio/`.
+- **Status:** active
+- **WP:** ad-hoc (architecture review of WP01)
+
+## 2026-05-29 — `AudioEngine` format: mono 48 kHz at construction
+
+- **Decision:** `AudioEngine` constructs its entire graph against a fixed `AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 1, interleaved: false)`. Changing the channel count or sample rate at runtime requires rebuilding the engine, not reconfiguring a node.
+- **Alternatives considered:** Stereo from day one (no current node benefits — `DroneSynth` and `NoiseGenerator` are mono sources; pays CPU and memory for nothing visible until BinauralGenerator lands); auto-match the hardware-preferred format on each route change (saves the sample-rate conversion but leaks device-specific formatting into the audio graph and breaks deterministic testing); make the format a per-mode parameter (premature flexibility — no mode currently varies it).
+- **Why:** The MVP node set is mono, and `AVAudioEngine` handles sample-rate conversion to the device transparently — there's no behavioural reason to vary either axis yet. Tests assume mono / 48 kHz throughout the audio test target. **Forward-looking constraint:** `BinauralGenerator` (architecture.md §2.1) inherently requires stereo; the WP that adds it must rebuild the engine to switch channel layouts, not reconfigure a node. Relax this decision (or supersede it) when stereo lands.
+- **Status:** active
+- **WP:** WP01
+

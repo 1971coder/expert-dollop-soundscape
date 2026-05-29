@@ -49,8 +49,11 @@ Deliver the MVP feature set from [requirements.md §6](../docs/requirements.md#6
 - `Soundscape/Audio/Nodes/PadSynth.swift` (new)
 - `Soundscape/Audio/Nodes/PulseModulator.swift` (new)
 - `Soundscape/Audio/Nodes/FilterController.swift` (new)
-- `Soundscape/Audio/AudioEngine.swift` (modify — register new nodes)
-- `Soundscape/Audio/Internal/ParameterId.swift` (modify — add values)
+- `Soundscape/Audio/AudioEngine.swift` (modify — register new nodes; **also**: serialise lifecycle methods, see *Inherited from WP01 reviews*)
+- `Soundscape/Audio/Internal/ParameterId.swift` (modify — add values; **may move** out of `Internal/` per the 2026-05-29 access-model decision)
+- `Soundscape/Audio/Internal/ParameterDelta.swift` (modify — clamp/NaN guard + missing public-type doc; **may move** out of `Internal/`)
+- `Soundscape/Audio/Internal/EngineParameters.swift` (modify — demote to `internal`)
+- `Soundscape/Audio/Internal/RingBuffer.swift` (modify — demote to `internal`)
 - `Soundscape/Modes/ModeKind.swift` (new)
 - `Soundscape/Modes/ModePreset.swift` (new)
 - `Soundscape/Modes/Presets/FocusPresets.swift` (new)
@@ -62,7 +65,7 @@ Deliver the MVP feature set from [requirements.md §6](../docs/requirements.md#6
 - `Soundscape/Persistence/Repositories/PresetRepository.swift` (new)
 - `Soundscape/Persistence/Repositories/AdaptiveProfileRepository.swift` (new, even if empty — protocol only)
 - `Soundscape/Sessions/SessionStateManager.swift` (new)
-- `Soundscape/Views/Screens/Home/HomeView.swift` (modify — mode picker)
+- `Soundscape/Views/Screens/Home/HomeView.swift` (modify — mode picker; **also**: route engine calls through `SessionStateManager` instead of direct `engine.ingest` / `engine.start`, see *Inherited from WP01 reviews*)
 - `Soundscape/Views/Screens/Session/SessionView.swift` (new)
 - `Soundscape/Views/Screens/Session/RatingPromptView.swift` (new)
 - `Soundscape/Views/Screens/History/HistoryView.swift` (new)
@@ -90,6 +93,7 @@ Deliver the MVP feature set from [requirements.md §6](../docs/requirements.md#6
 - `Soundscape.xcodeproj/project.pbxproj`
 - `../docs/data-model.md`
 - `../docs/api-contract.md`
+- `../docs/project-structure.md` *(to reconcile lines 98-101 and 160 with the 2026-05-29 `Audio/Internal/` access-model decision in `decisions.md`)*
 - `../docs/handoff.md`
 - `../docs/delivery-plan.md`
 
@@ -139,6 +143,33 @@ Deliver the MVP feature set from [requirements.md §6](../docs/requirements.md#6
 - The rating UI shape (thumbs vs 1–5) is a UX call; decide in this WP and record in `decisions.md`.
 - `ParameterId` additions must coordinate with WP03 if WP03 is in flight — both WPs touch the same enum.
 - Audio fixtures committed under `SoundscapeTests/AudioTests/Fixtures/` with a generator script.
+
+### Inherited from WP01 reviews (2026-05-29)
+
+The three reviews of WP01 (integration / QA / architecture) surfaced findings that have no home until WP02 lands. They are listed here so the WP02 agent treats them as required scope, not optional polish. Each item names the file and the proposed fix; if any of them grows beyond a small change, lift it into a dedicated WP.
+
+1. **Serialise `AudioEngine` lifecycle methods** *(QA review — high latency-of-harm)*. `Soundscape/Audio/AudioEngine.swift:41` uses a plain `private var isRunning = false` on a `nonisolated final class`; `start()` / `stop()` are `async` but read/write `isRunning` without isolation. Latent in WP01 because only the main-actor UI calls in; becomes a real race the moment `SessionStateManager` (this WP) calls `start`/`stop` from a non-main context. **Fix:** convert `AudioEngine` to an `actor` (cleanest; flips callers to `await`-flavoured automatically) or serialise lifecycle methods behind an `OSAllocatedUnfairLock` / dedicated dispatch queue. Decide as part of `SessionStateManager`'s design before writing it.
+
+2. **Clamp / NaN-guard `ParameterDelta` at the boundary** *(QA review)*. `Soundscape/Audio/Internal/ParameterDelta.swift:1` does no range or NaN check; a `.nan` value pushed via `ingest(_:)` propagates through `EngineParameters.apply` into render-thread multiplications and produces NaN samples. `coding-standards.md §4` authorises engine-internal clamps as defence-in-depth. **Fix:** clamp `value` to `0...1` (or to the target's documented range) and reject `.nan` / `.infinity` in `ParameterDelta.init`, or in `EngineParameters.apply`. Add a regression test that pushes `.nan` and asserts bounded output.
+
+3. **Route `HomeView` engine calls through `SessionStateManager`** *(architecture review)*. `Soundscape/Views/Screens/Home/HomeView.swift:34` (`onChange`) and `HomeView.swift:60` (`toggle`) call `engine.ingest` and `engine.start` directly. `architecture.md §1` mandates that the presentation layer go through `SessionStateManager`. The bypass was unavoidable in WP01 (no manager existed); this WP creates the manager, so the bypass must be retired in the same change. **Fix:** every `engine.*` call from `HomeView` becomes a `sessionStateManager.*` call. Also short-circuit ingest while no session is active so slider events don't accumulate in the ring buffer pre-Start.
+
+4. **Surface route-change failures to the UI** *(QA review)*. `Soundscape/Audio/AudioEngine.swift:154-158`: if `engine.start()` after a route change throws, the error is logged but `isRunning` stays `true` and the UI is never told. User sees a "playing" Stop button with no audio; only recovery is tap Stop + Start. **Fix:** publish engine-health state from `SessionStateManager` (an `EngineState` enum: `idle | starting | running | failed(reason) | stopping`), and have the view react. Route-change failure transitions to `failed(.routeChangeRecoveryFailed)`.
+
+5. **`api-contract.md §1` is out of sync with shipped `Audio/` surface** *(integration review)*. The doc still declares `public protocol AudioEngineControl { ... }` and `public struct ParameterDelta: Sendable`. The shipped types are `public protocol AudioEngineControl: Sendable` (load-bearing under Swift 6) and `nonisolated public struct ParameterDelta: Sendable`. **Fix:** update §1 to reflect both annotations, and either add the `.filterCutoff` example value (since this WP ships `FilterController`) or strike it from the example list. `api-contract.md` is already in this WP's allow-list.
+
+6. **Reconcile `Audio/Internal/` with the 2026-05-29 access-model decision** *(architecture review)*. `decisions.md` 2026-05-29 makes `Audio/Internal/` strictly module-private. WP01's shipped layout violates this in two ways: (a) `ParameterId.swift` and `ParameterDelta.swift` live in `Internal/` but are public contract types — move them to the top of `Audio/` or to `Audio/Contract/`; (b) `EngineParameters` and `ParameterRingBuffer` are declared `public` but used only inside `Audio/` — demote both to `internal` (Swift's default). Then amend `project-structure.md` lines 98-101 (don't list contract types under `Internal/`) and line 160 (keep the "module-private" rule but it now matches reality). The `project.pbxproj` will need updating for the moved files.
+
+7. **Replace the WP01 `ModePreset` stub with the real type** *(integration review — already in WP02 scope, restated here for completeness)*. `Soundscape/Audio/AudioEngine.swift:10-12` is a placeholder. Delete it and create the real `Soundscape/Modes/ModePreset.swift` per this WP's *Files likely touched*.
+
+8. **Add public-type doc to `ParameterDelta`** *(architecture review)*. `coding-standards.md §12` mandates a one-paragraph doc on public `Audio/` / `Adaptive/` types explaining the realtime contract and threading model. `ParameterDelta.swift:1` has none. Trivial to address when this WP touches the file for the clamp/guard fix (#2).
+
+9. **Cite the Paul Kellet pink-noise coefficients** *(architecture review)*. `Soundscape/Audio/Nodes/NoiseGenerator.swift:54-57` uses Kellet's published coefficients; add a one-line `// Paul Kellet's economy pink-noise filter, musicdsp.org` so a future tuning pass doesn't break the spectrum guarantee. Touch only if this WP modifies `NoiseGenerator.swift`; otherwise defer.
+
+### Related handoff items already tracked
+
+- `scripts/format.sh` xcrun fallback (handoff *Open Issues*) — out of WP02's allow-list; do not touch from this WP, file as its own micro-WP.
+- `SoundscapeUITests` is currently skipped in the shared scheme — this WP's required XCUITest (`SoundscapeUITests/CriticalPathTests.swift`) is the trigger to re-enable it. Flip `skipped="YES"` → `skipped="NO"` in `Soundscape.xcodeproj/xcshareddata/xcschemes/Soundscape.xcscheme` as part of the test wiring; the scheme is implicitly in this WP's surface via the `project.pbxproj` allow-list, but call out the scheme edit explicitly in the PR description.
 
 ## Handoff requirements
 
