@@ -4,7 +4,7 @@
 
 ## Current Snapshot
 
-**2026-05-29.** **WP02 — MVP: Focus & Sleep — implementation + three reviews + tight follow-up bundle complete**; status remains `in-review` pending final user sign-off. The branch is `wp/02-mvp-focus-sleep`, last commit `f63d441` (WP01 closeout); all WP02 changes + the follow-up bundle are uncommitted in the working tree. **57 tests pass** (56 unit + 1 XCUITest) against `iPhone 17 Pro Max, iOS 26.5`; `./scripts/check.sh` is clean (no warnings); `./scripts/template-audit.sh --strict` reports zero warnings. Manual smoke confirms the new HomeView with 25 / 50 / 90 min duration chips between Focus and Sleep, default 25 selected.
+**2026-05-29.** **WP02 — MVP: Focus & Sleep is `merged`** in both the WP file header and `delivery-plan.md`'s Archive. The branch `wp/02-mvp-focus-sleep` carries commit `6538bfa` (WP02 implementation + follow-up bundle) on top of `f63d441` (WP01 closeout). **57 tests pass** (56 unit + 1 XCUITest) against `iPhone 17 Pro Max, iOS 26.5`; `./scripts/check.sh` clean (no warnings); `./scripts/template-audit.sh --strict` zero warnings. Manual smoke confirmed the new HomeView with 25 / 50 / 90 min Focus duration chips. **WP03 is unblocked.**
 
 **Follow-up bundle closed five items from the integration + QA reviews:** (a) Focus countdown + duration picker (25 / 50 / 90 chips, auto-`endCurrentSession()` at zero); (b) orphan-session cleanup on both engine-start-throws and route-change-failure paths — `SessionStateManager.handleEngineFailure` converted to `async` and clears `activeSession` + finalizes the row + stops the engine in order; (c) mode buttons now disable on `.failed` state (user must tap the error banner first); (d) logger privacy switched from `.public` → `.private` for the four `String(describing: error)` interpolations in `SessionStateManager`; (e) `SessionRepository.finalize` clamps `actualDurationSeconds` at zero so a backward clock change can't write a negative value. Four new tests cover the orphan-cleanup + negative-clamp paths.
 
@@ -37,7 +37,7 @@
 
 ## Blockers
 
-- None for WP02 itself. WP03 (Adaptive intelligence) was blocked on WP02; once WP02 is merged WP03 is unblocked.
+- None. WP03 is unblocked as of WP02's merge (2026-05-29).
 
 ## Technical Debt To Revisit
 
@@ -72,14 +72,13 @@
 
 ## Next Recommended Steps
 
-1. **Commit the WP02 follow-up bundle as a single commit** (suggested message: `fix(WP02): close countdown + orphan-session + failure-UX + privacy + duration-clamp gaps`). All WP02 source + follow-up bundle changes are uncommitted on `wp/02-mvp-focus-sleep`; the WP01 closeout commit (`f63d441`) is the only thing already on the branch. Consider splitting into two commits (`feat(WP02): MVP focus + sleep` and `fix(WP02): integration + QA findings`) if you want the review history clearer.
+1. **Push the branch** when ready: `git push -u origin wp/02-mvp-focus-sleep`. The merge to `main` is the user's call.
 2. **Manually test the new countdown** in the simulator: tap a duration chip (try 50), tap Focus, watch the timer count *down* from 50:00, optionally tap End early to verify the rating prompt still appears.
 3. **Verify background audio with the screen locked** on a real device (simulator can't truly lock). Start Sleep, lock the device, confirm audio continues; unlock and tap End.
 4. **Run Instruments → Time Profiler** for a 30 s session and confirm zero allocations on the audio render thread. The new nodes (`PadSynth`, the SVF filter, the LFO modulator) are the main risk surface.
 5. **Decide the four remaining should-fix items** (main-actor repos vs `@ModelActor`; missing error-path tests; multi-axis intensity; app smoke test). The cleanest path is a thin WP02.1 cleanup batch or bundling into WP03's first day.
 6. **Address the architectural decisions** flagged by `/architecture-review`: `@Query` in views vs repository contract; single-impl repository protocols; `PulseModulator` / `FilterController` location and architecture.md alignment. These are the highest-leverage *not-yet-recorded* choices in the codebase.
-7. **Mark WP02 `merged`** in `work-packages/WP02-mvp-focus-sleep.md` and `docs/delivery-plan.md` (move WP02's row from *Active* to *Archive*) once steps 1-2 are done and you're ready to ship.
-8. **Start WP03** (`/start-agent WP03-adaptive-intelligence`). WP03 needs `AdaptiveController`, signal collectors (`TimeOfDay`, `Motion`, `HeartRate`, `Feedback`), a minimal rule set, plus `Relax` and `Walk` modes.
+7. **Start WP03** (`/start-agent WP03-adaptive-intelligence`). WP03 needs `AdaptiveController`, signal collectors (`TimeOfDay`, `Motion`, `HeartRate`, `Feedback`), a minimal rule set, plus `Relax` and `Walk` modes.
 
 ## Historical Notes (optional)
 
