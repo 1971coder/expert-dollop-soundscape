@@ -1,3 +1,5 @@
+import Darwin
+
 /// Single-producer / single-consumer ring buffer for parameter deltas.
 ///
 /// **Threading contract.** Producer side (`tryPush`) is invoked by
@@ -7,10 +9,9 @@
 ///
 /// **Ordering.** Indices are plain `UInt32` reads/writes on naturally-aligned
 /// storage; on ARM64 (every supported iOS device) those are single-instruction
-/// atomic. Memory ordering is relaxed — a delta arriving one render block late
-/// (≤ ~6 ms at 256 frames / 44.1 kHz) is inaudible; ramp times absorb the
-/// latency. When the project's deployment target moves to iOS 18+ this becomes
-/// `Synchronization.Atomic<UInt32>` with explicit acquire/release.
+/// atomic. `OSMemoryBarrier` provides the release/acquire fence around index
+/// publication until the deployment target can move to iOS 18+ and use
+/// `Synchronization.Atomic<UInt32>` directly.
 nonisolated public final class ParameterRingBuffer: @unchecked Sendable {
     public let capacity: UInt32
     private let mask: UInt32
@@ -44,6 +45,7 @@ nonisolated public final class ParameterRingBuffer: @unchecked Sendable {
         let t = tail.pointee
         if h &- t >= capacity { return false }
         buffer.advanced(by: Int(h & mask)).pointee = value
+        OSMemoryBarrier()
         head.pointee = h &+ 1
         return true
     }
@@ -52,7 +54,9 @@ nonisolated public final class ParameterRingBuffer: @unchecked Sendable {
         let t = tail.pointee
         let h = head.pointee
         if t == h { return nil }
+        OSMemoryBarrier()
         let value = buffer.advanced(by: Int(t & mask)).pointee
+        OSMemoryBarrier()
         tail.pointee = t &+ 1
         return value
     }

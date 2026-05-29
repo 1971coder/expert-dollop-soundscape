@@ -1,4 +1,4 @@
-public struct ParameterDelta: Sendable {
+nonisolated public struct ParameterDelta: Sendable {
     public let target: ParameterId
     public let value: Float
     public let rampMilliseconds: UInt32
