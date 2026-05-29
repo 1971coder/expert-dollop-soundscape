@@ -12,14 +12,14 @@ import Darwin
 /// atomic. `OSMemoryBarrier` provides the release/acquire fence around index
 /// publication until the deployment target can move to iOS 18+ and use
 /// `Synchronization.Atomic<UInt32>` directly.
-nonisolated public final class ParameterRingBuffer: @unchecked Sendable {
-    public let capacity: UInt32
+nonisolated final class ParameterRingBuffer: @unchecked Sendable {
+    let capacity: UInt32
     private let mask: UInt32
     private let buffer: UnsafeMutablePointer<ParameterDelta>
     private let head: UnsafeMutablePointer<UInt32>
     private let tail: UnsafeMutablePointer<UInt32>
 
-    public init(capacity: UInt32 = 1024) {
+    init(capacity: UInt32 = 1024) {
         precondition(capacity >= 2 && (capacity & (capacity - 1)) == 0, "capacity must be a power of two")
         self.capacity = capacity
         self.mask = capacity - 1
@@ -40,7 +40,7 @@ nonisolated public final class ParameterRingBuffer: @unchecked Sendable {
     }
 
     @discardableResult
-    public func tryPush(_ value: ParameterDelta) -> Bool {
+    func tryPush(_ value: ParameterDelta) -> Bool {
         let h = head.pointee
         let t = tail.pointee
         if h &- t >= capacity { return false }
@@ -50,7 +50,7 @@ nonisolated public final class ParameterRingBuffer: @unchecked Sendable {
         return true
     }
 
-    public func tryPop() -> ParameterDelta? {
+    func tryPop() -> ParameterDelta? {
         let t = tail.pointee
         let h = head.pointee
         if t == h { return nil }

@@ -24,11 +24,13 @@ final class RingBufferTests: XCTestCase {
         XCTAssertFalse(buffer.tryPush(ParameterDelta(target: .masterGain, value: 0)))
     }
 
-    func testWrapAround() {
+    func testWrapAround() throws {
         let buffer = ParameterRingBuffer(capacity: 4)
         for index in 0..<10 {
-            XCTAssertTrue(buffer.tryPush(ParameterDelta(target: .masterGain, value: Float(index))))
-            XCTAssertEqual(buffer.tryPop()?.value, Float(index))
+            let normalised = Float(index) / 10
+            XCTAssertTrue(buffer.tryPush(ParameterDelta(target: .masterGain, value: normalised)))
+            let popped = try XCTUnwrap(buffer.tryPop()?.value)
+            XCTAssertEqual(popped, normalised, accuracy: 1e-6)
         }
     }
 
@@ -53,7 +55,8 @@ final class RingBufferTests: XCTestCase {
 
         producer.async {
             for index in 0..<messageCount {
-                while !buffer.tryPush(ParameterDelta(target: .masterGain, value: Float(index))) {
+                let normalised = Float(index) / Float(messageCount)
+                while !buffer.tryPush(ParameterDelta(target: .masterGain, value: normalised)) {
                     // spin until consumer drains a slot
                 }
             }
@@ -62,7 +65,8 @@ final class RingBufferTests: XCTestCase {
         wait(for: [exp], timeout: 10)
         XCTAssertEqual(consumed.count, messageCount)
         for index in 0..<messageCount {
-            XCTAssertEqual(consumed[index] as? Float, Float(index), "out-of-order at \(index)")
+            let expected = Float(index) / Float(messageCount)
+            XCTAssertEqual(consumed[index] as? Float, expected, "out-of-order at \(index)")
         }
     }
 }

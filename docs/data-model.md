@@ -21,7 +21,7 @@ Represents one user listening session.
 | `presetId` | UUID? | FK → `ModePreset.id`; nil if ad-hoc |
 | `targetDurationSeconds` | Int? | Nil = open-ended (typical for sleep) |
 | `actualDurationSeconds` | Int? | Computed at end |
-| `rating` | Int? | 1–5 (or thumbs, TBD WP00); nil if user skipped |
+| `rating` | Int? | Thumbs encoding (decided 2026-05-29 WP02): `5` = thumbs up, `1` = thumbs down, `nil` = skipped |
 | `freeTextFeedback` | String? | Optional |
 
 Lifecycle: created on tap-start, finalised on session end. Sessions are immutable after `endedAt` is set (except for late-arriving ratings).
@@ -51,7 +51,7 @@ Per-session rating (1:1 today; the entity exists separately so we can add in-ses
 | `id` | UUID | Primary key |
 | `sessionId` | UUID | FK → `Session.id` |
 | `timestamp` | Date | When the rating was given |
-| `value` | Int | 1–5 (or thumbs encoding; TBD WP00) |
+| `value` | Int | Thumbs encoding (decided 2026-05-29 WP02): `5` = thumbs up, `1` = thumbs down |
 | `note` | String? | Optional free text |
 
 ### `AdaptiveProfile` (Phase 3+)
@@ -102,7 +102,12 @@ No cross-mode references; each `Session` belongs to one preset (or none, for ad-
 
 No cloud retention in MVP.
 
+## As-built notes (WP02)
+
+- The value-type `ModePreset` (in `Modes/`) is mirrored on disk by `ModePresetRecord` (in `Persistence/Models/`) — the two are converted at the repository boundary so SwiftData reference semantics do not leak into the audio path. `ParameterSnapshot` is JSON-encoded into `ModePresetRecord.parametersData`.
+- `Session.modeKindRaw: String` stores the `ModeKind.rawValue` (SwiftData enum-attribute migrations are still rough; storing the raw string keeps schema evolution cheap).
+- Repositories are `@MainActor` and use `container.mainContext` synchronously inside `async throws` method bodies. The `async` shape lets a future WP swap in a background `@ModelActor` impl without changing call sites.
+
 ## Open questions
 
-- Rating scale: thumbs / 1–5 / both? — decide WP00 or WP02.
 - Whether to store per-second engine parameter snapshots for replay/debugging — useful but storage-heavy. Probably opt-in via a debug toggle.

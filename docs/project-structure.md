@@ -87,18 +87,20 @@ Soundscape/                       Xcode app target source
     SceneDelegate.swift           (only if UIScene-based)
   Audio/                          Real-time audio graph
     AudioEngine.swift             AVAudioEngine wrapper, public API
+    Contract/                     Public types shared with Adaptive/ — see api-contract.md §1
+      ParameterId.swift
+      ParameterDelta.swift
     Nodes/
       DroneSynth.swift
       PadSynth.swift
       NoiseGenerator.swift
-      PulseModulator.swift
-      FilterController.swift
+      PulseModulator.swift        Sub-audible LFO state (struct, used inside source nodes)
+      FilterController.swift      SVF math + parameter mapping (used inside source nodes)
       BinauralGenerator.swift
       Mixer.swift
-    Internal/
+    Internal/                     Module-private — see decisions.md 2026-05-29
       RingBuffer.swift            Lock-free SPSC parameter pipe
-      ParameterDelta.swift
-      ParameterId.swift           Shared enum — read api-contract.md
+      EngineParameters.swift      Shared parameter store
   Adaptive/                       Off-audio-thread rules engine
     AdaptiveController.swift
     Signals/
@@ -157,7 +159,8 @@ scripts/                          Polyglot wrappers
 Notes:
 
 - `Audio/` is the **only** module that runs code on the audio render thread. Anything outside `Audio/` is off-thread.
-- `Audio/Internal/` is module-private. Only `AudioEngine.swift` is `public` to the rest of the app.
+- `Audio/Internal/` is module-private (see `decisions.md` 2026-05-29). Public contract types shared with `Adaptive/` live in `Audio/Contract/`, not `Audio/Internal/`.
+- The only public surface of `Audio/` is `AudioEngine.swift` (the `AudioEngineControl` protocol + concrete actor-like class) plus the contract types in `Audio/Contract/`. Everything else under `Audio/` is `internal`.
 - `Persistence/Repositories/*` are the **only** way to read or write durable data from outside `Persistence/`.
 - The repo currently ships the bare Xcode template skeleton; WP01 lays this layout down for real.
 

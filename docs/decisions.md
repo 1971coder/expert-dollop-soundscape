@@ -118,3 +118,43 @@ When a decision is **superseded**, do not delete the old entry. Mark its status 
 - **Status:** active
 - **WP:** WP01
 
+## 2026-05-29 — Rating UI: thumbs encoded as Int
+
+- **Decision:** The post-session rating is a thumbs-up / thumbs-down / skip choice. Persisted as `Int?` (`5` = up, `1` = down, `nil` = skipped) in both `Session.rating` and `RatingEvent.value`.
+- **Alternatives considered:** 5-star rating (more bins for the Phase 3 adaptive learner, but heavier UX for a tired user — especially when ending a Sleep session in the middle of the night); thumbs primary + 5-star in Settings (out of MVP scope for the Settings WP).
+- **Why:** The user-friction floor matters more than the signal richness at this stage. Thumbs-up / down / skip is the lowest-friction shape that still gives the adaptive layer a usable bit per session. Encoding into the `Int?` field already in `data-model.md` avoids a schema change. When the adaptive learner needs more bins, supersede this decision and migrate the column.
+- **Status:** active
+- **WP:** WP02
+
+## 2026-05-29 — `AudioEngine` lifecycle: lock-based serialisation, not actor
+
+- **Decision:** Keep `AudioEngine` as a `nonisolated public final class` and serialise `start` / `stop` / `handleRouteChange` behind `OSAllocatedUnfairLock`. The hot path `ingest(_:)` remains lock-free (SPSC ring buffer).
+- **Alternatives considered:** Convert to a Swift `actor` (the WP01 architecture review's preferred option). Use a serial `DispatchQueue` (effectively the same as the lock but heavier per-call cost).
+- **Why:** The project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which makes actor inits main-actor-isolated. Combined with AVFoundation types (`AVAudioEngine`, `AVAudioSourceNode`, ...) that are not `Sendable`, the actor route produces a wall of false-positive Swift 6 isolation warnings without making the threading model safer. `OSAllocatedUnfairLock` gives the same serialisation guarantee with no extra cognitive overhead and zero compiler-warning noise. Re-evaluate once Apple ships `Sendable` annotations on AVFoundation; the protocol shape (`AudioEngineControl: Sendable`) is unchanged either way.
+- **Status:** active
+- **WP:** WP02 (supersedes the actor-preferred suggestion in WP01 architecture review item #1)
+
+## 2026-05-29 — Audio session category `.playback` for both Focus and Sleep
+
+- **Decision:** Both Focus and Sleep configure `AVAudioSession.Category.playback` with `mode: .default` and no options (no `.mixWithOthers`). Walk mode (Phase 3) will likely use `.ambient` to preserve environmental sound for safety — decide at that WP.
+- **Alternatives considered:** Per-mode category switching at start (one mechanism today, none of the MVP modes need to differ); always `.ambient` (loses background-audio capability for Sleep).
+- **Why:** Focus and Sleep both want to take over playback: Focus is an active-foreground listening mode and Sleep is a background-locked-screen mode. Both want headphones / Bluetooth route handling identically. A single category simplifies the engine and the AVAudioSession route-change handling path. Walk's environmental-mix requirement diverges from this, so it'll get its own decision when WP03 lands it.
+- **Status:** active
+- **WP:** WP02
+
+## 2026-05-29 — Background audio entitlement: `UIBackgroundModes = audio` for the whole app
+
+- **Decision:** Add `INFOPLIST_KEY_UIBackgroundModes = audio` to the Soundscape target's build configs (Debug + Release). This applies to *every* session, not just Sleep — Focus sessions also continue when the user backgrounds the app.
+- **Alternatives considered:** Stop the engine when Focus enters `.background` and resume on `.active` (matches the original brief intent but requires a new `engine.pause()`/`engine.resume()` method pair and per-mode scene-phase logic — more surface than MVP earns).
+- **Why:** The entitlement is global by iOS design — there's no "background audio for some modes only" key. The behavioural choice is whether the app actively stops the engine on background for Focus. Doing nothing (the MVP default) means Focus continues playing if the user backgrounds it; that's a forgivable behaviour (it's the same as Sleep) and avoids new code paths. Tighten when a user complains.
+- **Status:** active
+- **WP:** WP02
+
+## 2026-05-29 — SwiftData schema ratified as built
+
+- **Decision:** The WP02 SwiftData schema is ratified as the MVP shape: `Session`, `ModePresetRecord`, `RatingEvent` (`AdaptiveProfile` deferred to WP03). Schema details live in `data-model.md`.
+- **Alternatives considered:** Bundle `RatingEvent` into `Session` (saves one type but blocks the "in-session ratings" feature later); split `ModePreset` into one entity per parameter (over-normalised; SwiftData isn't a relational store).
+- **Why:** Smallest schema that satisfies the api-contract repository surface. `ModePresetRecord` is the only entity with an internal Codable payload (`parametersData: Data` encoding `ParameterSnapshot`); the others map directly to columns. The `+Model.swift` filename suggests an extension; in practice the file holds the SwiftData class because the value-type `ModePreset` (in `Modes/`) is the in-memory contract — the persistence record needs its own name to avoid collision.
+- **Status:** active
+- **WP:** WP02
+

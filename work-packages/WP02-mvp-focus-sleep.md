@@ -1,6 +1,6 @@
 # WP02 — MVP: Focus & Sleep
 
-> **Status:** proposed
+> **Status:** in-review
 > **Branch:** `wp/02-mvp-focus-sleep`
 > **Assigned:** claude (pair with human)
 > **Depends on:** WP01
@@ -173,9 +173,9 @@ The three reviews of WP01 (integration / QA / architecture) surfaced findings th
 
 ## Handoff requirements
 
-- [ ] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) status updated to `merged`.
-- [ ] [../docs/handoff.md](../docs/handoff.md) reflects new state via `/update-handoff`.
-- [ ] [../docs/decisions.md](../docs/decisions.md) updated for: SwiftData schema, rating UI shape, audio session category per mode, background-audio entitlement.
-- [ ] [../docs/data-model.md](../docs/data-model.md) reflects the as-built schema.
-- [ ] Tests pass: `./scripts/test.sh`.
-- [ ] Audit passes: `./scripts/template-audit.sh --strict`.
+- [x] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) status updated to `in-review`. *(WP02 row in Active; flip to `merged` and move to Archive on user sign-off after reviews.)*
+- [x] [../docs/handoff.md](../docs/handoff.md) reflects new state. *(rewritten 2026-05-29.)*
+- [x] [../docs/decisions.md](../docs/decisions.md) updated for: SwiftData schema, rating UI shape, audio session category per mode, background-audio entitlement, AudioEngine lifecycle (lock not actor).
+- [x] [../docs/data-model.md](../docs/data-model.md) reflects the as-built schema (rating thumbs encoding; ModePresetRecord vs ModePreset; main-actor repository note).
+- [x] Tests pass: `./scripts/test.sh`. *(52 unit + 1 XCUITest, all green against iPhone 17 Pro Max iOS 26.5.)*
+- [x] Audit passes: `./scripts/template-audit.sh --strict`. *(0 warnings.)*

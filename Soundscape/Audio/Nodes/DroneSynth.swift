@@ -9,13 +9,17 @@ import Foundation
 ///
 /// **DroneSynth is the designated parameter-pipe drainer.** Once per render
 /// block it pops every queued `ParameterDelta` from the shared ring buffer
-/// and applies it to `EngineParameters`. NoiseGenerator (and any later
-/// nodes) read from the same `EngineParameters` instance.
-nonisolated public final class DroneSynth {
-    public let node: AVAudioSourceNode
+/// and applies it to `EngineParameters`. NoiseGenerator and PadSynth read
+/// from the same `EngineParameters` instance.
+///
+/// **WP02 additions.** Pulse modulation (so the drone breathes with the
+/// shared pulse rate) and the master `filterCutoff` knob applied via a
+/// gentle low-pass at the output stage.
+nonisolated final class DroneSynth {
+    let node: AVAudioSourceNode
     private let state: DroneRenderState
 
-    public init(
+    init(
         format: AVAudioFormat,
         parameters: EngineParameters,
         ringBuffer: ParameterRingBuffer
@@ -45,6 +49,8 @@ nonisolated private final class DroneRenderState: @unchecked Sendable {
     let ringBuffer: ParameterRingBuffer
     let sampleRate: Float
     var voices: [Voice]
+    var filter = StateVariableFilter()
+    var pulse = PulseModulator()
 
     init(parameters: EngineParameters, ringBuffer: ParameterRingBuffer, sampleRate: Float) {
         self.parameters = parameters
@@ -69,6 +75,14 @@ nonisolated private final class DroneRenderState: @unchecked Sendable {
         let detune = parameters.droneDetune
         let droneGain = parameters.droneGain
         let masterGain = parameters.masterGain
+        let cutoffHz = FilterController.cutoffHz(fromNorm: parameters.filterCutoff, minHz: 200, maxHz: 8_000)
+        let q = FilterController.qFromNorm(0)
+        let pulseGain = pulse.nextGain(
+            rateNorm: parameters.pulseRate,
+            depthNorm: parameters.pulseDepth,
+            frameCount: frameCount,
+            sampleRate: sampleRate
+        )
         let nodeGain: Float = 0.3
         let twoPi: Float = 2 * Float.pi
         let voiceCount = Float(voices.count)
@@ -90,7 +104,8 @@ nonisolated private final class DroneRenderState: @unchecked Sendable {
                     if voices[vIndex].lfoPhase > twoPi { voices[vIndex].lfoPhase -= twoPi }
                 }
                 sample /= voiceCount
-                dest[frame] = sample * nodeGain * droneGain * masterGain
+                let filtered = filter.processLowPass(sample, cutoffHz: cutoffHz, q: q, sampleRate: sr)
+                dest[frame] = filtered * nodeGain * droneGain * pulseGain * masterGain
             }
         }
     }
