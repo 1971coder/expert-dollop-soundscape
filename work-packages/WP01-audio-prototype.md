@@ -1,6 +1,6 @@
 # WP01 — Audio prototype
 
-> **Status:** in-review
+> **Status:** merged (2026-05-29)
 > **Branch:** `wp/01-audio-prototype`
 > **Assigned:** claude (pair with human)
 > **Depends on:** WP00 (merged 2026-05-22)
@@ -132,8 +132,8 @@ None.
 
 ## Handoff requirements
 
-- [ ] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) status updated to `merged`. *(human action — currently `in-review`)*
-- [x] [../docs/handoff.md](../docs/handoff.md) reflects new state.
-- [ ] [../docs/decisions.md](../docs/decisions.md) updated if anything load-bearing was decided. *(load-bearing items already in WP00; WP01 decisions captured in this file's Integration notes — no new entry needed.)*
-- [ ] Tests pass: `./scripts/test.sh`. *(gated on iOS 26.5 simulator runtime install — see Integration notes "Open follow-up".)*
+- [x] Row in [../docs/delivery-plan.md](../docs/delivery-plan.md) status updated to `merged`. *(moved to Archive table 2026-05-29.)*
+- [x] [../docs/handoff.md](../docs/handoff.md) reflects new state. *(rewritten 2026-05-29 to absorb integration / QA / architecture review findings.)*
+- [x] [../docs/decisions.md](../docs/decisions.md) updated if anything load-bearing was decided. *(three entries added 2026-05-29: designated drainer; `Audio/Internal/` access model; mono 48 kHz engine format.)*
+- [x] Tests pass: `./scripts/test.sh`. *(iOS 26.5 simulator runtime installed; suite green against `iPhone 17 Pro Max, iOS 26.5`.)*
 - [x] Audit passes: `./scripts/template-audit.sh --strict`.
